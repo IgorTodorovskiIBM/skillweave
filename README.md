@@ -4,21 +4,6 @@
 
 skillweave is an MCP server that turns corrections, patterns, and hard-won knowledge into persistent SKILL.md files that every team member's AI agent can learn from. Stop re-explaining the same things across sessions and across people — teach it once, share it with the team via Git.
 
-### The problem
-
-AI coding agents forget everything between sessions. You correct the same mistakes, re-explain the same patterns, and watch the same wrong approaches play out — over and over. Multiply that by every person on your team, each discovering the same gotchas independently.
-
-### The solution
-
-skillweave captures learnings as you work and stores them in version-controlled SKILL.md files. When a new session starts, the agent loads the skill and already knows what took you hours to teach. When you push, the whole team benefits.
-
-```
-You: "No, use %w not %v for error wrapping here"
-Agent: [calls skill_note] → noted.
-                            ↓
-                    next session, every team member's agent knows this
-```
-
 ## Install
 
 ```bash
