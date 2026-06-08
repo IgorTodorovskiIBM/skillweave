@@ -7,7 +7,7 @@ skillweave is an MCP server that turns corrections, patterns, and hard-won knowl
 ## Install
 
 ```bash
-go install github.com/IgorTodorovskiIBM/skillweave@latest
+go install github.com/zopencommunity/skillweave@latest
 ```
 
 Make sure `$GOPATH/bin` is in your PATH (usually `~/go/bin`):
@@ -87,7 +87,7 @@ Config lives in `~/.skillweave/skills.json`. Override the directory with `SKILLW
 ## Build from source
 
 ```bash
-git clone https://github.com/IgorTodorovskiIBM/skillweave.git
+git clone https://github.com/zopencommunity/skillweave.git
 cd skillweave
 go build .
 ```
