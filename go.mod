@@ -1,4 +1,4 @@
-module github.com/IgorTodorovskiIBM/skillweave
+module github.com/zopencommunity/skillweave
 
 go 1.23.0
 
