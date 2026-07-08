@@ -624,10 +624,14 @@ func cmdSetup(args []string) {
 		fmt.Fprintf(os.Stderr, "  learnweave setup https://github.com/user/repo --path skills/my-skill/SKILL.md\n")
 		fmt.Fprintf(os.Stderr, "  learnweave setup git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n")
 		fmt.Fprintf(os.Stderr, "  learnweave setup user/repo --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  learnweave setup git@github.ibm.com:user/repo.git --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  learnweave setup . --path skills/my-skill/SKILL.md   (local git checkout)\n")
 		fmt.Fprintf(os.Stderr, "  learnweave setup --repo git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n\n")
 		fs.PrintDefaults()
 	}
-	fs.Parse(args)
+	// Reorder so flags (e.g. --path) placed after the positional URL/path are
+	// still parsed; Go's flag package otherwise stops at the first non-flag arg.
+	fs.Parse(reorderFlags(args))
 
 	if *cacheDir == "" {
 		*cacheDir = defaultCacheDir()
@@ -643,14 +647,26 @@ func cmdSetup(args []string) {
 			fs.Usage()
 			os.Exit(1)
 		}
-		parsed, parsedPath, err := ParseGitHubURL(fs.Arg(0))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		rURL = parsed
-		if sPath == "" {
-			sPath = parsedPath
+		arg := fs.Arg(0)
+		if localRepo, detectedLocal, isLocal, lerr := ParseLocalRepoArg(arg); isLocal {
+			if lerr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", lerr)
+				os.Exit(1)
+			}
+			rURL = localRepo
+			if *localPath == "" {
+				*localPath = detectedLocal
+			}
+		} else {
+			parsed, parsedPath, err := ParseGitHubURL(arg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			rURL = parsed
+			if sPath == "" {
+				sPath = parsedPath
+			}
 		}
 	}
 

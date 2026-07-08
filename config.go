@@ -175,19 +175,20 @@ func (s RegisteredSkill) ToolDescription() string {
 	return "Skill guide: " + s.Name
 }
 
-// githubBlobRe matches: https://github.com/<owner>/<repo>/blob/<branch>/<path>
-var githubBlobRe = regexp.MustCompile(`^https://github\.com/([^/]+/[^/]+)/blob/[^/]+/(.+)$`)
+// githubBlobRe matches: https://<host>/<owner>/<repo>/blob/<branch>/<path>
+// Host is generic so GitHub Enterprise (e.g. github.ibm.com) works too.
+var githubBlobRe = regexp.MustCompile(`^https?://([\w.-]+)/([^/]+/[^/]+)/blob/[^/]+/(.+)$`)
 
 // githubRawRe matches: https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>
 var githubRawRe = regexp.MustCompile(`^https://raw\.githubusercontent\.com/([^/]+/[^/]+)/[^/]+/(.+)$`)
 
-// githubRepoRe matches: https://github.com/<owner>/<repo> (no path)
-var githubRepoRe = regexp.MustCompile(`^https://github\.com/([^/]+/[^/]+?)(?:\.git)?/?$`)
+// githubRepoRe matches: https://<host>/<owner>/<repo> (no path)
+var githubRepoRe = regexp.MustCompile(`^https?://([\w.-]+)/([^/]+/[^/]+?)(?:\.git)?/?$`)
 
-// sshRepoRe matches: git@github.com:<owner>/<repo>.git
-var sshRepoRe = regexp.MustCompile(`^git@github\.com:([^/]+/[^/]+?)(?:\.git)?$`)
+// sshRepoRe matches: git@<host>:<owner>/<repo>.git (host and nested paths generic)
+var sshRepoRe = regexp.MustCompile(`^git@([\w.-]+):([^/]+/.+?)(?:\.git)?$`)
 
-// shorthandRe matches: owner/repo
+// shorthandRe matches: owner/repo (assumed to live on github.com)
 var shorthandRe = regexp.MustCompile(`^([a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+)$`)
 
 // ParseGitHubURL extracts repo URL and file path from various GitHub URL formats.
@@ -202,9 +203,9 @@ func ParseGitHubURL(rawURL string) (repoURL, skillPath string, err error) {
 		return repoURL, skillPath, nil
 	}
 
-	// Try blob URL first (most specific).
+	// Try blob URL first (most specific). Preserve the host for Enterprise.
 	if m := githubBlobRe.FindStringSubmatch(rawURL); m != nil {
-		return "git@github.com:" + m[1] + ".git", m[2], nil
+		return "git@" + m[1] + ":" + m[2] + ".git", m[3], nil
 	}
 
 	// Try raw.githubusercontent.com URL.
@@ -212,14 +213,14 @@ func ParseGitHubURL(rawURL string) (repoURL, skillPath string, err error) {
 		return "git@github.com:" + m[1] + ".git", m[2], nil
 	}
 
-	// Try HTTPS repo URL (no file path).
+	// Try HTTPS repo URL (no file path). Preserve the host for Enterprise.
 	if m := githubRepoRe.FindStringSubmatch(rawURL); m != nil {
-		return "git@github.com:" + m[1] + ".git", "", nil
+		return "git@" + m[1] + ":" + m[2] + ".git", "", nil
 	}
 
-	// Try SSH repo URL.
+	// Try SSH repo URL. Preserve the host for Enterprise.
 	if m := sshRepoRe.FindStringSubmatch(rawURL); m != nil {
-		return "git@github.com:" + m[1] + ".git", "", nil
+		return "git@" + m[1] + ":" + m[2] + ".git", "", nil
 	}
 
 	// Try owner/repo shorthand.
@@ -231,7 +232,7 @@ func ParseGitHubURL(rawURL string) (repoURL, skillPath string, err error) {
 		return repoURL, "", nil
 	}
 
-	return "", "", fmt.Errorf("unrecognized URL format: %s\nSupported formats:\n  https://github.com/owner/repo/blob/branch/path-to-SKILL.md\n  https://github.com/owner/repo\n  git@github.com:owner/repo.git\n  owner/repo", rawURL)
+	return "", "", fmt.Errorf("unrecognized URL format: %s\nSupported formats:\n  https://github.com/owner/repo/blob/branch/path-to-SKILL.md\n  https://github.com/owner/repo\n  git@github.com:owner/repo.git   (any host, e.g. git@github.ibm.com:owner/repo.git)\n  owner/repo\n  .  or  /path/to/local/repo   (a local git checkout; use --path for the SKILL.md)", rawURL)
 }
 
 func parseSkillURLWithKnownPrefixes(rawURL string) (string, string, bool) {
@@ -343,6 +344,70 @@ func parseFrontmatter(raw string) (string, string, string) {
 		}
 	}
 	return name, desc, body
+}
+
+// looksLikeLocalPath reports whether arg should be treated as a local
+// filesystem path rather than a remote URL or owner/repo shorthand.
+func looksLikeLocalPath(arg string) bool {
+	if arg == "." || arg == ".." {
+		return true
+	}
+	if strings.HasPrefix(arg, "/") || strings.HasPrefix(arg, "./") ||
+		strings.HasPrefix(arg, "../") || strings.HasPrefix(arg, "~") {
+		return true
+	}
+	// A bare name (no slash) that exists as a directory, e.g. "myrepo".
+	// Anything with a slash is left for owner/repo shorthand handling.
+	if !strings.Contains(arg, "/") {
+		if info, err := os.Stat(arg); err == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// expandHome expands a leading ~ to the user's home directory.
+func expandHome(p string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(p, "~"))
+		}
+	}
+	return p
+}
+
+// ParseLocalRepoArg resolves a local filesystem argument into a repo URL and
+// local checkout path. When the directory is inside a git repo with an
+// "origin" remote, that remote becomes the repo URL (so pushes/PRs target it)
+// and the worktree root becomes the local path. A repo without a remote (or a
+// plain directory) falls back to using the directory itself as the repo URL,
+// which git can still clone from locally. Returns ok=false if arg is not a
+// local path or the path doesn't exist.
+func ParseLocalRepoArg(arg string) (repoURL, localPath string, ok bool, err error) {
+	if !looksLikeLocalPath(arg) {
+		return "", "", false, nil
+	}
+
+	abs, err := filepath.Abs(expandHome(arg))
+	if err != nil {
+		return "", "", true, fmt.Errorf("resolve %q: %w", arg, err)
+	}
+	info, statErr := os.Stat(abs)
+	if statErr != nil || !info.IsDir() {
+		return "", "", true, fmt.Errorf("not a directory: %s", abs)
+	}
+
+	root := gitRepoRoot(abs)
+	if root == "" {
+		// Not a git checkout — use the directory as-is.
+		return abs, abs, true, nil
+	}
+
+	if remote := gitRemoteURL(root); remote != "" {
+		return remote, root, true, nil
+	}
+	// Git repo with no remote — clone from the local path directly.
+	return root, root, true, nil
 }
 
 // DetectLocalPath checks if the current directory (or a parent) is a git

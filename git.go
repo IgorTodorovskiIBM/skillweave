@@ -21,6 +21,24 @@ func repoCacheDir(cacheDir, repoURL string) string {
 	return filepath.Join(cacheDir, "repos", hashString(normalizeRepoURL(repoURL)))
 }
 
+// gitRepoRoot returns the worktree root of the git repo containing dir, or "".
+func gitRepoRoot(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// gitRemoteURL returns the origin remote URL for the repo at dir, or "".
+func gitRemoteURL(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // ensureRepo clones or pulls a repository, returning the local path.
 func ensureRepo(repoURL, cacheDir string) (string, error) {
 	logger := GetLogger().WithFields(map[string]interface{}{
