@@ -21,14 +21,14 @@ import (
 )
 
 func defaultCacheDir() string {
-	if dir := os.Getenv("LEARNWEAVE_DIR"); dir != "" {
+	if dir := os.Getenv("SKILLWEAVE_DIR"); dir != "" {
 		return dir
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("cannot determine home dir: %v", err)
 	}
-	return filepath.Join(home, ".learnweave")
+	return filepath.Join(home, ".skillweave")
 }
 
 const serverInstructions = `Skill Updater MCP server. Each registered skill appears as its own tool (skill_<name>). Read the relevant skill before starting work.
@@ -94,7 +94,7 @@ func main() {
 
 	httpAddr := flag.String("http", "", "HTTP listen address (e.g. :8080). If empty, run in stdio mode.")
 	logTransport := flag.Bool("log-transport", false, "Log transport frames to stderr")
-	cacheDir := flag.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := flag.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	logJSON := flag.Bool("log-json", false, "Output logs in JSON format")
 	flag.Parse()
@@ -118,7 +118,7 @@ func main() {
 	logger.WithFields(map[string]interface{}{
 		"version":   "0.1.0",
 		"cache_dir": *cacheDir,
-	}).Info("learnweave starting")
+	}).Info("skillweave starting")
 
 	if *cacheDir == "" {
 		*cacheDir = defaultCacheDir()
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "learnweave",
+		Name:    "skillweave",
 		Version: "0.1.0",
 	}, &mcp.ServerOptions{
 		Instructions: serverInstructions,
@@ -155,7 +155,7 @@ func main() {
 		sseHandler := mcp.NewSSEHandler(func(*http.Request) *mcp.Server { return srv }, nil)
 		http.Handle("/mcp", handler)
 		http.Handle("/sse", sseHandler)
-		log.Printf("learnweave listening on %s", *httpAddr)
+		log.Printf("skillweave listening on %s", *httpAddr)
 		if err := http.ListenAndServe(*httpAddr, nil); err != nil {
 			log.Fatalf("http server: %v", err)
 		}
@@ -178,7 +178,7 @@ func main() {
 // --- CLI subcommands ---
 
 func cmdRegister(args []string) {
-	fmt.Fprintln(os.Stderr, "Note: 'learnweave register' is deprecated. Use 'learnweave setup' instead.")
+	fmt.Fprintln(os.Stderr, "Note: 'skillweave register' is deprecated. Use 'skillweave setup' instead.")
 	fmt.Fprintln(os.Stderr, "      setup does everything register does, plus validates the repo and prints MCP config.")
 	fmt.Fprintln(os.Stderr)
 	cmdSetup(args)
@@ -186,10 +186,10 @@ func cmdRegister(args []string) {
 
 func cmdUnregister(args []string) {
 	fs := flag.NewFlagSet("unregister", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	yes := fs.Bool("yes", false, "Skip confirmation prompt")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave unregister [flags] <name>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave unregister [flags] <name>\n\n")
 		fmt.Fprintf(os.Stderr, "Remove a registered skill.\n\n")
 		fs.PrintDefaults()
 	}
@@ -233,7 +233,7 @@ func cmdUnregister(args []string) {
 
 func cmdList(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	fs.Parse(args)
 
 	if *cacheDir == "" {
@@ -250,11 +250,11 @@ func cmdList(args []string) {
 
 func cmdLedger(args []string) {
 	fs := flag.NewFlagSet("ledger", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	all := fs.Bool("all", false, "Show all entries including merged (for list)")
 	yes := fs.Bool("yes", false, "Skip confirmation prompt (for clear)")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave ledger <action> <skill-name> [entry-id]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave ledger <action> <skill-name> [entry-id]\n\n")
 		fmt.Fprintf(os.Stderr, "Actions:\n")
 		fmt.Fprintf(os.Stderr, "  list   <skill-name>             List ledger entries\n")
 		fmt.Fprintf(os.Stderr, "  review <skill-name>             Walk through unmerged notes (keep/discard)\n")
@@ -285,7 +285,7 @@ func cmdLedger(args []string) {
 			fmt.Fprintln(os.Stderr, "No skills registered. Use 'skillweave setup <github-url>' to add one.")
 			os.Exit(1)
 		}
-		fmt.Fprintf(os.Stderr, "Usage: learnweave ledger <action> <skill-name> [entry-id]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave ledger <action> <skill-name> [entry-id]\n\n")
 		fmt.Fprintf(os.Stderr, "Available skills:\n")
 		for _, s := range cfg.Skills {
 			entries, _ := ReadLedger(*cacheDir, s.RepoURL, s.SkillPath, 0)
@@ -360,7 +360,7 @@ func cmdLedger(args []string) {
 
 	case "delete":
 		if fs.NArg() < 3 {
-			fmt.Fprintf(os.Stderr, "Usage: learnweave ledger delete <skill-name> <entry-id>\n")
+			fmt.Fprintf(os.Stderr, "Usage: skillweave ledger delete <skill-name> <entry-id>\n")
 			os.Exit(1)
 		}
 		entryID := fs.Arg(2)
@@ -435,7 +435,7 @@ func cmdLedger(args []string) {
 func printHelp() {
 	fmt.Fprintf(os.Stderr, `skillweave - MCP server that keeps SKILL.md files up to date
 
-Usage: learnweave <command> [args]
+Usage: skillweave <command> [args]
 
 Getting started:
   setup       One-command setup: register a skill and print MCP config
@@ -468,20 +468,20 @@ Run 'skillweave <command> --help' for details on each command.
 
 func cmdAI(args []string) {
 	fs := flag.NewFlagSet("ai", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave ai <action> [args]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave ai <action> [args]\n\n")
 		fmt.Fprintf(os.Stderr, "Actions:\n")
 		fmt.Fprintf(os.Stderr, "  add     <name> <command> [args...]  Add an AI tool\n")
 		fmt.Fprintf(os.Stderr, "  list                                List configured AI tools\n")
 		fmt.Fprintf(os.Stderr, "  remove  <name>                      Remove an AI tool\n")
 		fmt.Fprintf(os.Stderr, "  reorder <name1> <name2> ...         Set the order (first = tried first)\n\n")
 		fmt.Fprintf(os.Stderr, "Examples:\n")
-		fmt.Fprintf(os.Stderr, "  learnweave ai add bob bob --yolo --output-format text\n")
-		fmt.Fprintf(os.Stderr, "  learnweave ai add gemini /home/itodoro/bin/gemini.mjs -p\n")
-		fmt.Fprintf(os.Stderr, "  learnweave ai reorder gemini bob\n")
-		fmt.Fprintf(os.Stderr, "  learnweave ai list\n")
-		fmt.Fprintf(os.Stderr, "  learnweave ai remove gemini\n\n")
+		fmt.Fprintf(os.Stderr, "  skillweave ai add bob bob --yolo --output-format text\n")
+		fmt.Fprintf(os.Stderr, "  skillweave ai add gemini /home/itodoro/bin/gemini.mjs -p\n")
+		fmt.Fprintf(os.Stderr, "  skillweave ai reorder gemini bob\n")
+		fmt.Fprintf(os.Stderr, "  skillweave ai list\n")
+		fmt.Fprintf(os.Stderr, "  skillweave ai remove gemini\n\n")
 		fmt.Fprintf(os.Stderr, "The prompt is always appended as the last argument.\n")
 		fmt.Fprintf(os.Stderr, "When pushing, tools are tried in order until one succeeds.\n\n")
 		fs.PrintDefaults()
@@ -507,7 +507,7 @@ func cmdAI(args []string) {
 	switch action {
 	case "add":
 		if fs.NArg() < 3 {
-			fmt.Fprintf(os.Stderr, "Usage: learnweave ai add <name> <command> [args...]\n")
+			fmt.Fprintf(os.Stderr, "Usage: skillweave ai add <name> <command> [args...]\n")
 			os.Exit(1)
 		}
 		name := fs.Arg(1)
@@ -528,9 +528,9 @@ func cmdAI(args []string) {
 
 	case "list":
 		if len(cfg.AICommands) == 0 {
-			fmt.Println("No AI tools configured. Use 'learnweave ai add' to add one.")
+			fmt.Println("No AI tools configured. Use 'skillweave ai add' to add one.")
 			fmt.Println("\nExample:")
-			fmt.Println("  learnweave ai add bob bob --yolo --output-format text")
+			fmt.Println("  skillweave ai add bob bob --yolo --output-format text")
 			return
 		}
 		for i, cmd := range cfg.AICommands {
@@ -542,12 +542,12 @@ func cmdAI(args []string) {
 			fmt.Printf("  %s %s  →  %s%s\n", order, cmd.Name, cmd.Command, args)
 		}
 		if len(cfg.AICommands) > 1 {
-			fmt.Println("\nHint: use 'learnweave ai reorder <name1> <name2> ...' to change the try order.")
+			fmt.Println("\nHint: use 'skillweave ai reorder <name1> <name2> ...' to change the try order.")
 		}
 
 	case "remove":
 		if fs.NArg() < 2 {
-			fmt.Fprintf(os.Stderr, "Usage: learnweave ai remove <name>\n")
+			fmt.Fprintf(os.Stderr, "Usage: skillweave ai remove <name>\n")
 			os.Exit(1)
 		}
 		name := fs.Arg(1)
@@ -562,7 +562,7 @@ func cmdAI(args []string) {
 
 	case "reorder":
 		if fs.NArg() < 2 {
-			fmt.Fprintf(os.Stderr, "Usage: learnweave ai reorder <name1> <name2> ...\n")
+			fmt.Fprintf(os.Stderr, "Usage: skillweave ai reorder <name1> <name2> ...\n")
 			os.Exit(1)
 		}
 		names := make([]string, 0, fs.NArg()-1)
@@ -612,21 +612,21 @@ func cmdSetup(args []string) {
 	fs := flag.NewFlagSet("setup", flag.ExitOnError)
 	name := fs.String("name", "", "Skill name (auto-derived from path if omitted)")
 	description := fs.String("description", "", "Short MCP tool description override (stored in config)")
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	localPath := fs.String("local-path", "", "Local checkout root (auto-detected if inside a matching repo)")
 	repoURL := fs.String("repo", "", "Git repo URL (if not using a GitHub blob URL)")
 	skillPath := fs.String("path", "", "Path to SKILL.md in repo (required if URL doesn't include a file path)")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave setup [flags] <github-url>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave setup [flags] <github-url>\n\n")
 		fmt.Fprintf(os.Stderr, "One-command setup: register a skill and print MCP client config.\n\n")
 		fmt.Fprintf(os.Stderr, "Accepts many URL formats:\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup https://github.com/user/repo/blob/main/skills/my-skill/SKILL.md\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup https://github.com/user/repo --path skills/my-skill/SKILL.md\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup user/repo --path skills/my-skill/SKILL.md\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup git@github.ibm.com:user/repo.git --path skills/my-skill/SKILL.md\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup . --path skills/my-skill/SKILL.md   (local git checkout)\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup --repo git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup https://github.com/user/repo/blob/main/skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup https://github.com/user/repo --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup user/repo --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup git@github.ibm.com:user/repo.git --path skills/my-skill/SKILL.md\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup . --path skills/my-skill/SKILL.md   (local git checkout)\n")
+		fmt.Fprintf(os.Stderr, "  skillweave setup --repo git@github.com:user/repo.git --path skills/my-skill/SKILL.md\n\n")
 		fs.PrintDefaults()
 	}
 	// Reorder so flags (e.g. --path) placed after the positional URL/path are
@@ -673,7 +673,7 @@ func cmdSetup(args []string) {
 	if sPath == "" {
 		fmt.Fprintf(os.Stderr, "Error: could not determine the skill path from the URL.\n")
 		fmt.Fprintf(os.Stderr, "Use --path to specify it, e.g.:\n")
-		fmt.Fprintf(os.Stderr, "  learnweave setup %s --path skills/my-skill/SKILL.md\n", fs.Arg(0))
+		fmt.Fprintf(os.Stderr, "  skillweave setup %s --path skills/my-skill/SKILL.md\n", fs.Arg(0))
 		os.Exit(1)
 	}
 
@@ -790,7 +790,7 @@ func cmdSetup(args []string) {
 			}
 		}
 		if !found {
-			fmt.Println("  None found. Optional: run 'learnweave ai add' to configure one.")
+			fmt.Println("  None found. Optional: run 'skillweave ai add' to configure one.")
 		}
 	}
 
@@ -825,7 +825,7 @@ func cmdSetup(args []string) {
 
 func cmdStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	fs.Parse(args)
 
 	if *cacheDir == "" {
@@ -930,16 +930,16 @@ func printMCPConfig() {
 
 func cmdPush(args []string) {
 	fs := flag.NewFlagSet("push", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	commitMsg := fs.String("m", "", "Commit message (auto-generated if omitted)")
 	skipPR := fs.Bool("no-pr", false, "Push branch only, don't create a PR")
 	aiName := fs.String("ai", "", "Use a specific AI tool by name (default: try all in order)")
 	dryRun := fs.Bool("dry-run", false, "Show what would change without committing or pushing")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave push [flags] <skill-name>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave push [flags] <skill-name>\n\n")
 		fmt.Fprintf(os.Stderr, "Push skill updates to GitHub as a PR.\n")
 		fmt.Fprintf(os.Stderr, "If there are unmerged learnings in the ledger, uses a configured AI tool to merge them.\n")
-		fmt.Fprintf(os.Stderr, "AI tools are tried in order (see 'learnweave ai list'). Use --ai to pick one.\n\n")
+		fmt.Fprintf(os.Stderr, "AI tools are tried in order (see 'skillweave ai list'). Use --ai to pick one.\n\n")
 		fs.PrintDefaults()
 	}
 	fs.Parse(args)
@@ -957,7 +957,7 @@ func cmdPush(args []string) {
 			fmt.Fprintln(os.Stderr, "No skills registered. Use 'skillweave setup <github-url>' to add one.")
 			os.Exit(1)
 		}
-		fmt.Fprintf(os.Stderr, "Usage: learnweave push [flags] <skill-name>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave push [flags] <skill-name>\n\n")
 		fmt.Fprintf(os.Stderr, "Available skills:\n")
 		for _, s := range cfg.Skills {
 			entries, _ := ReadLedger(*cacheDir, s.RepoURL, s.SkillPath, 0)
@@ -1414,10 +1414,10 @@ func showDiff(original, updated, label string) {
 
 func cmdGC(args []string) {
 	fs := flag.NewFlagSet("gc", flag.ExitOnError)
-	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.learnweave)")
+	cacheDir := fs.String("cache-dir", "", "Cache directory (default ~/.skillweave)")
 	maxAge := fs.Int("days", 30, "Delete merged ledger entries older than this many days")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: learnweave gc [flags]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: skillweave gc [flags]\n\n")
 		fmt.Fprintf(os.Stderr, "Clean up stale cache repos and old merged ledger entries.\n\n")
 		fmt.Fprintf(os.Stderr, "Removes:\n")
 		fmt.Fprintf(os.Stderr, "  - Cached repos for skills that are no longer registered\n")
