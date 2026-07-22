@@ -310,7 +310,9 @@ func DeriveSkillName(skillPath string) string {
 func parseFrontmatter(raw string) (string, string, string) {
 	const delim = "---"
 
-	trimmed := strings.TrimSpace(raw)
+	// Normalize line endings so the delimiter and continuation handling below
+	// works for files checked out with either LF or CRLF endings.
+	trimmed := strings.TrimSpace(strings.ReplaceAll(raw, "\r\n", "\n"))
 	if !strings.HasPrefix(trimmed, delim) {
 		return "", "", raw
 	}
@@ -325,8 +327,9 @@ func parseFrontmatter(raw string) (string, string, string) {
 	body := strings.TrimSpace(rest[idx+len("\n"+delim):])
 
 	var name, desc string
-	for _, line := range strings.Split(frontmatter, "\n") {
-		line = strings.TrimSpace(line)
+	lines := strings.Split(frontmatter, "\n")
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
 		colonIdx := strings.Index(line, ":")
 		if colonIdx < 0 {
 			continue
@@ -340,10 +343,55 @@ func parseFrontmatter(raw string) (string, string, string) {
 		case "name":
 			name = val
 		case "description":
-			desc = val
+			if val == ">" || val == ">-" || val == ">+" ||
+				val == "|" || val == "|-" || val == "|+" {
+				desc, i = parseYAMLBlockScalar(lines, i, val[0] == '>')
+			} else {
+				desc = val
+			}
 		}
 	}
 	return name, desc, body
+}
+
+// parseYAMLBlockScalar reads the indented lines following a YAML folded (>) or
+// literal (|) scalar. This intentionally handles the scalar forms used in
+// skill front matter without trying to become a general-purpose YAML parser.
+func parseYAMLBlockScalar(lines []string, start int, folded bool) (string, int) {
+	var block []string
+	indent := -1
+
+	for i := start + 1; i < len(lines); i++ {
+		line := lines[i]
+		if strings.TrimSpace(line) == "" {
+			block = append(block, "")
+			continue
+		}
+
+		leading := len(line) - len(strings.TrimLeft(line, " \t"))
+		if leading == 0 {
+			break
+		}
+		if indent < 0 || leading < indent {
+			indent = leading
+		}
+		block = append(block, line)
+	}
+
+	if indent > 0 {
+		for i, line := range block {
+			if len(line) >= indent {
+				block[i] = line[indent:]
+			}
+		}
+	}
+
+	if folded {
+		// YAML folds ordinary line breaks to spaces, while blank lines remain
+		// paragraph breaks. normalizeToolDescription later collapses whitespace.
+		return strings.Join(block, " "), start + len(block)
+	}
+	return strings.Join(block, "\n"), start + len(block)
 }
 
 // looksLikeLocalPath reports whether arg should be treated as a local

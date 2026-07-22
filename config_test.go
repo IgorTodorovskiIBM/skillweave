@@ -8,6 +8,38 @@ import (
 	"testing"
 )
 
+func TestParseFrontmatterFoldedDescription(t *testing.T) {
+	raw := `---
+name: interop-modernization-assistant
+description: >
+  Use this skill whenever the user wants to make a COBOL program and a Python program talk to each
+  other without rewriting either one. Covers both directions and both AMODE variants.
+---
+
+# Body
+`
+
+	name, description, body := parseFrontmatter(raw)
+	if name != "interop-modernization-assistant" {
+		t.Fatalf("unexpected name: %q", name)
+	}
+	want := "Use this skill whenever the user wants to make a COBOL program and a Python program talk to each other without rewriting either one. Covers both directions and both AMODE variants."
+	if description != want {
+		t.Fatalf("unexpected folded description: %q", description)
+	}
+	if body != "# Body" {
+		t.Fatalf("unexpected body: %q", body)
+	}
+}
+
+func TestParseFrontmatterLiteralDescription(t *testing.T) {
+	raw := "---\ndescription: |\n  first line\n  second line\n---\nbody"
+	_, description, _ := parseFrontmatter(raw)
+	if description != "first line\nsecond line" {
+		t.Fatalf("unexpected literal description: %q", description)
+	}
+}
+
 func TestParseGitHubURLBlob(t *testing.T) {
 	repoURL, skillPath, err := ParseGitHubURL("https://github.com/example/repo/blob/main/skills/sample/SKILL.md")
 	if err != nil {
